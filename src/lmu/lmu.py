@@ -2,7 +2,7 @@ import numpy as np
 from scipy.signal import cont2discrete
 
 from keras import activations
-from keras import backend
+from keras import random
 from keras import ops
 from keras import layers
 
@@ -60,7 +60,7 @@ class LMUCell(layers.Layer, DropoutRNNCell):
         self.dropout = min(1.0, max(0.0, dropout))
         self.recurrent_dropout = min(1.0, max(0.0, recurrent_dropout))
         self.seed = seed
-        self.seed_generator = backend.random.SeedGenerator(seed=seed)
+        self.seed_generator = random.SeedGenerator(seed=seed)
 
         self.state_size = [self.hidden_size, self.memory_size]
         self.output_size = self.hidden_size
@@ -92,12 +92,12 @@ class LMUCell(layers.Layer, DropoutRNNCell):
         self.e_x = self.add_weight(
             shape=(1, input_dim),
             name="e_x",
-            initializer=".lecun_uniform",
+            initializer="lecun_uniform",
         )
         self.e_h = self.add_weight(
             shape=(1, self.hidden_size),
             name="e_h",
-            initializer=".lecun_uniform",
+            initializer="lecun_uniform",
         )
         self.e_m = self.add_weight(
             shape=(1, self.memory_size),
@@ -142,19 +142,21 @@ class LMUCell(layers.Layer, DropoutRNNCell):
 
         # Equation (7) of the paper # [batch_size, 1]
         u = (
-            ops.matmul(inputs, self.e_x)
-            + ops.matmul(h_tm1, self.e_h)
-            + ops.matmul(m_tm1, self.e_m)
+            ops.matmul(inputs, ops.transpose(self.e_x))
+            + ops.matmul(h_tm1, ops.transpose(self.e_h))
+            + ops.matmul(m_tm1, ops.transpose(self.e_m))
         )
 
         # Equation (4) of the paper # [batch_size, memory_size]
-        m = ops.matmul(m_tm1, self.A) + ops.matmul(u, self.B)
+        m = ops.matmul(m_tm1, ops.transpose(self.A)) + ops.matmul(
+            u, ops.transpose(self.B)
+        )
 
         # Equation (6) of the paper # [batch_size, hidden_size]
         h = self.activation(
-            ops.matmul(inputs, self.W_x)
-            + ops.matmul(h_tm1, self.W_h)
-            + ops.matmul(m, self.W_m)
+            ops.matmul(inputs, ops.transpose(self.W_x))
+            + ops.matmul(h_tm1, ops.transpose(self.W_h))
+            + ops.matmul(m, ops.transpose(self.W_m))
         )
 
         return h, [h, m]
